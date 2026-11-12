@@ -1,0 +1,912 @@
+-- RYZEN ULTRA KAKA V7: LANGUAGE FIX + ALL MECHANICS
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+local Debris = game:GetService("Debris")
+local TweenService = game:GetService("TweenService")
+local player = Players.LocalPlayer
+local char = player.Character or player.CharacterAdded:Wait()
+local hrp = char:WaitForChild("HumanoidRootPart")
+
+local followers = {}
+local kakaCounter = 0
+local killCount = 0
+local lang = "RU"
+
+local L = {
+    RU = {
+        title = "🏭 RYZEN ULTRA KAKA V7",
+        spawn = "➕ СПАВН ULTRA KAKI",
+        gun = "🔫 ВЫДАТЬ ПИСТОЛЕТ",
+        flyOn = "🌠 FLY: ВКЛ",
+        flyOff = "🌠 FLY: ВЫКЛ",
+        delete = "🗑️ УДАЛИТЬ ВСЕХ",
+        kakaCount = "Как: ",
+        kills = "💀 УБИЙСТВА",
+        hint = "🎯 Прицел в центре\n💀 +1 KILL при убийстве\n🔫 Стреляй по какам",
+        langBtn = "🌐 ЯЗЫК: RU",
+        close = "✕"
+    },
+    EN = {
+        title = "🏭 RYZEN ULTRA KAKA V7",
+        spawn = "➕ SPAWN ULTRA KAKA",
+        gun = "🔫 GIVE GUN",
+        flyOn = "🌠 FLY: ON",
+        flyOff = "🌠 FLY: OFF",
+        delete = "🗑️ DELETE ALL",
+        kakaCount = "Kaka: ",
+        kills = "💀 KILLS",
+        hint = "🎯 Crosshair in center\n💀 +1 KILL on kill\n🔫 Shoot the kakas",
+        langBtn = "🌐 LANG: EN",
+        close = "✕"
+    }
+}
+
+local kakaWords = {
+    "кака", "туалет", "какашка", "пук", "вонь", "унитаз",
+    "срать", "говно", "писька", "попка", "воняю", "какаю",
+    "туалетик", "какулька", "пёрнул", "смрад", "фекалии",
+    "биде", "слив", "жопа", "какашечка", "туалетный", "вонючка"
+}
+
+-- ================= FLY =================
+local flying = false
+local flySpeed = 60
+local bodyGyro, bodyVelocity
+local ControlModule
+pcall(function()
+    local PlayerModule = require(player:WaitForChild("PlayerScripts"):WaitForChild("PlayerModule"))
+    ControlModule = PlayerModule:GetControls()
+end)
+
+local function startFly()
+    if flying then return end
+    flying = true
+    local char = player.Character
+    if not char then return end
+    local hrp = char:WaitForChild("HumanoidRootPart")
+    for _, v in pairs(char:GetDescendants()) do
+        if v:IsA("BasePart") then v.CanCollide = false end
+    end
+    bodyGyro = Instance.new("BodyGyro", hrp)
+    bodyGyro.P = 9e4
+    bodyGyro.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+    bodyGyro.CFrame = workspace.CurrentCamera.CFrame
+    bodyVelocity = Instance.new("BodyVelocity", hrp)
+    bodyVelocity.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+    bodyVelocity.Velocity = Vector3.zero
+
+    RunService:BindToRenderStep("RyzenFly", 0, function()
+        if not flying or not bodyGyro or not bodyVelocity then return end
+        local cam = workspace.CurrentCamera
+        bodyGyro.CFrame = cam.CFrame
+        local moveVector = Vector3.zero
+        if ControlModule then moveVector = ControlModule:GetMoveVector() end
+        local moveDir = Vector3.zero
+        if moveVector.Magnitude > 0.1 then
+            moveDir = (cam.CFrame.RightVector * moveVector.X) + (cam.CFrame.LookVector * -moveVector.Z)
+        end
+        if UIS:IsKeyDown(Enum.KeyCode.Space) then
+            moveDir = moveDir + cam.CFrame.UpVector
+        elseif UIS:IsKeyDown(Enum.KeyCode.LeftControl) then
+            moveDir = moveDir - cam.CFrame.UpVector
+        end
+        if moveDir.Magnitude > 0 then
+            bodyVelocity.Velocity = moveDir.Unit * flySpeed
+        else
+            bodyVelocity.Velocity = Vector3.zero
+        end
+    end)
+end
+
+local function stopFly()
+    if not flying then return end
+    flying = false
+    RunService:UnbindFromRenderStep("RyzenFly")
+    if bodyGyro then bodyGyro:Destroy() end
+    if bodyVelocity then bodyVelocity:Destroy() end
+    local char = player.Character
+    if char then
+        for _, v in pairs(char:GetDescendants()) do
+            if v:IsA("BasePart") then v.CanCollide = true end
+        end
+    end
+end
+
+-- ================= ПИСТОЛЕТ =================
+local function giveGun()
+    local backpack = player:FindFirstChild("Backpack")
+    if not backpack or backpack:FindFirstChild("RyzenGun") then return end
+    local tool = Instance.new("Tool")
+    tool.Name = "RyzenGun"
+    tool.RequiresHandle = true
+    tool.CanBeDropped = false
+    local handle = Instance.new("Part")
+    handle.Name = "Handle"
+    handle.Size = Vector3.new(0.4, 0.8, 1.6)
+    handle.Material = Enum.Material.Metal
+    handle.Color = Color3.fromRGB(40, 40, 40)
+    handle.Parent = tool
+    local barrel = Instance.new("Part")
+    barrel.Name = "Barrel"
+    barrel.Size = Vector3.new(0.25, 0.25, 1.0)
+    barrel.Material = Enum.Material.Metal
+    barrel.Color = Color3.fromRGB(20, 20, 20)
+    barrel.Parent = tool
+    local weld = Instance.new("WeldConstraint")
+    weld.Part0 = handle
+    weld.Part1 = barrel
+    weld.Parent = barrel
+    barrel.CFrame = handle.CFrame * CFrame.new(0, 0.2, -1.0)
+    local grip = Instance.new("Part")
+    grip.Name = "Grip"
+    grip.Size = Vector3.new(0.3, 0.6, 0.4)
+    grip.Material = Enum.Material.SmoothPlastic
+    grip.Color = Color3.fromRGB(60, 40, 20)
+    grip.Parent = tool
+    local weldG = Instance.new("WeldConstraint")
+    weldG.Part0 = handle
+    weldG.Part1 = grip
+    weldG.Parent = grip
+    grip.CFrame = handle.CFrame * CFrame.new(0, -0.4, 0.3)
+    tool.Parent = backpack
+end
+
+-- ================= ЭФФЕКТ "+1 KILL" =================
+local function showKillPopup(position)
+    local bill = Instance.new("BillboardGui")
+    bill.Size = UDim2.new(0, 200, 0, 60)
+    bill.StudsOffset = Vector3.new(0, 4, 0)
+    bill.AlwaysOnTop = true
+    bill.Parent = workspace
+    local label = Instance.new("TextLabel", bill)
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = "+1 KILL"
+    label.TextColor3 = Color3.fromRGB(255, 50, 50)
+    label.TextStrokeTransparency = 0
+    label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    label.TextScaled = true
+    label.Font = Enum.Font.GothamBlack
+    local anchor = Instance.new("Part")
+    anchor.Anchored = true
+    anchor.CanCollide = false
+    anchor.Transparency = 1
+    anchor.Size = Vector3.new(0.1, 0.1, 0.1)
+    anchor.Position = position + Vector3.new(0, 3, 0)
+    anchor.Parent = workspace
+    bill.Adornee = anchor
+    local tweenInfo = TweenInfo.new(1.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    local goal = { StudsOffset = Vector3.new(0, 8, 0) }
+    TweenService:Create(bill, tweenInfo, goal):Play()
+    task.delay(1.2, function()
+        bill:Destroy()
+        anchor:Destroy()
+    end)
+end
+
+-- ================= РАЗЛЁТ =================
+local function explodeKaka(model)
+    if not model or not model.Parent then return end
+    local base = model.PrimaryPart
+    if not base then return end
+    local origin = base.Position
+    showKillPopup(origin)
+    killCount = killCount + 1
+    for i, f in ipairs(followers) do
+        if f == model then table.remove(followers, i) break end
+    end
+    for _, part in pairs(model:GetDescendants()) do
+        if part:IsA("BasePart") and part ~= base then
+            local piece = part:Clone()
+            piece.Anchored = false
+            piece.CanCollide = true
+            piece.Parent = workspace
+            piece.Position = part.Position
+            local dir = (part.Position - origin)
+            if dir.Magnitude < 0.1 then dir = Vector3.new(math.random(-1,1), math.random(0,1), math.random(-1,1)) end
+            local vel = Instance.new("BodyVelocity")
+            vel.Velocity = dir.Unit * math.random(15, 30) + Vector3.new(0, math.random(10, 20), 0)
+            vel.MaxForce = Vector3.new(1e6, 1e6, 1e6)
+            vel.Parent = piece
+            local ang = Instance.new("BodyAngularVelocity")
+            ang.AngularVelocity = Vector3.new(math.random(-10,10), math.random(-10,10), math.random(-10,10))
+            ang.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
+            ang.Parent = piece
+            Debris:AddItem(piece, 5)
+        end
+    end
+    model:Destroy()
+end
+
+-- ================= СТРЕЛЬБА =================
+local function shoot()
+    local cam = workspace.CurrentCamera
+    local rayOrigin = cam.CFrame.Position
+    local rayDir = cam.CFrame.LookVector * 500
+    local params = RaycastParams.new()
+    params.FilterType = Enum.RaycastFilterType.Exclude
+    params.FilterDescendantsInstances = {char, cam}
+    local result = workspace:Raycast(rayOrigin, rayDir, params)
+    local beamOrigin = hrp.Position + cam.CFrame.LookVector * 2
+    local beamEnd = result and result.Position or (rayOrigin + rayDir)
+    local beam = Instance.new("Part")
+    beam.Anchored = true
+    beam.CanCollide = false
+    beam.Material = Enum.Material.Neon
+    beam.Color = Color3.fromRGB(255, 255, 0)
+    beam.Size = Vector3.new(0.1, 0.1, (beamEnd - beamOrigin).Magnitude)
+    beam.CFrame = CFrame.new(beamOrigin, beamEnd) * CFrame.new(0, 0, -(beamEnd - beamOrigin).Magnitude/2)
+    beam.Parent = workspace
+    Debris:AddItem(beam, 0.1)
+    if result then
+        local hit = result.Instance
+        local model = hit:FindFirstAncestorOfClass("Model")
+        if model and model.Name:find("Kaka_") then
+            explodeKaka(model)
+        end
+    end
+end
+
+-- ================= ULTRA KAKA =================
+local function makeWeld(parent, child, cf)
+    local weld = Instance.new("WeldConstraint")
+    weld.Part0 = parent
+    weld.Part1 = child
+    weld.Parent = child
+    if cf then child.CFrame = parent.CFrame * cf end
+end
+
+local function createSpeechBubble(model)
+    local bill = Instance.new("BillboardGui")
+    bill.Name = "SpeechBubble"
+    bill.Size = UDim2.new(0, 160, 0, 50)
+    bill.StudsOffset = Vector3.new(0, 4, 0)
+    bill.AlwaysOnTop = true
+    bill.MaxDistance = 80
+    bill.Parent = model
+
+    local bubble = Instance.new("Frame", bill)
+    bubble.Size = UDim2.new(1, 0, 1, 0)
+    bubble.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    bubble.BackgroundTransparency = 0.1
+    bubble.BorderSizePixel = 2
+    bubble.BorderColor3 = Color3.fromRGB(0, 0, 0)
+    local bc = Instance.new("UICorner")
+    bc.CornerRadius = UDim.new(0, 12)
+    bc.Parent = bubble
+
+    local label = Instance.new("TextLabel", bubble)
+    label.Name = "BubbleText"
+    label.Size = UDim2.new(1, -10, 1, -10)
+    label.Position = UDim2.new(0, 5, 0, 5)
+    label.BackgroundTransparency = 1
+    label.Text = ""
+    label.TextColor3 = Color3.fromRGB(0, 0, 0)
+    label.TextScaled = true
+    label.Font = Enum.Font.GothamBold
+    label.TextWrapped = true
+
+    local tail = Instance.new("Frame", bubble)
+    tail.Size = UDim2.new(0, 12, 0, 12)
+    tail.Position = UDim2.new(0.5, -6, 1, -6)
+    tail.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    tail.BorderSizePixel = 0
+    tail.Rotation = 45
+    tail.ZIndex = 0
+
+    return bill
+end
+
+local function createKaka()
+    kakaCounter = kakaCounter + 1
+    local model = Instance.new("Model")
+    model.Name = "Kaka_" .. kakaCounter
+    local base = Instance.new("Part")
+    base.Name = "Base"
+    base.Size = Vector3.new(2.5, 0.2, 2.5)
+    base.Transparency = 1
+    base.Anchored = true
+    base.CanCollide = false
+    base.Parent = model
+    model.PrimaryPart = base
+
+    local sizeVar = 0.9 + math.random() * 0.5
+    local brownShades = {
+        Color3.fromRGB(101, 67, 33),
+        Color3.fromRGB(139, 90, 43),
+        Color3.fromRGB(120, 75, 40),
+        Color3.fromRGB(90, 55, 25),
+        Color3.fromRGB(160, 100, 50)
+    }
+    local bodyColor = brownShades[math.random(1, #brownShades)]
+    local darkColor = bodyColor:Lerp(Color3.new(0,0,0), 0.3)
+    local lightColor = bodyColor:Lerp(Color3.new(1,1,1), 0.2)
+
+    local bottom = Instance.new("Part")
+    bottom.Name = "Bottom"
+    bottom.Shape = Enum.PartType.Ball
+    bottom.Size = Vector3.new(2.8, 1.6, 2.8) * sizeVar
+    bottom.Material = Enum.Material.SmoothPlastic
+    bottom.Color = bodyColor
+    bottom.Anchored = false
+    bottom.CanCollide = false
+    bottom.Parent = model
+    makeWeld(base, bottom, CFrame.new(0, 0.9, 0))
+
+    local middle = Instance.new("Part")
+    middle.Name = "Middle"
+    middle.Shape = Enum.PartType.Ball
+    middle.Size = Vector3.new(2.0, 1.4, 2.0) * sizeVar
+    middle.Material = Enum.Material.SmoothPlastic
+    middle.Color = bodyColor
+    middle.Anchored = false
+    middle.CanCollide = false
+    middle.Parent = model
+    makeWeld(bottom, middle, CFrame.new(0, 0.8, 0))
+
+    local top = Instance.new("Part")
+    top.Name = "Top"
+    top.Shape = Enum.PartType.Ball
+    top.Size = Vector3.new(1.3, 1.0, 1.3) * sizeVar
+    top.Material = Enum.Material.SmoothPlastic
+    top.Color = bodyColor
+    top.Anchored = false
+    top.CanCollide = false
+    top.Parent = model
+    makeWeld(middle, top, CFrame.new(0, 0.6, 0))
+
+    local swirlData = {
+        {CFrame.new(0.3, 0.45, 0.2) * CFrame.Angles(0, math.rad(30), math.rad(15)), 0.55},
+        {CFrame.new(0.5, 0.75, 0.35) * CFrame.Angles(0, math.rad(60), math.rad(30)), 0.4},
+        {CFrame.new(0.6, 1.0, 0.45) * CFrame.Angles(0, math.rad(90), math.rad(45)), 0.25}
+    }
+    for i, data in ipairs(swirlData) do
+        local swirl = Instance.new("Part")
+        swirl.Name = "Swirl" .. i
+        swirl.Shape = Enum.PartType.Ball
+        swirl.Size = Vector3.new(data[2], data[2]*0.8, data[2]) * sizeVar
+        swirl.Material = Enum.Material.SmoothPlastic
+        swirl.Color = bodyColor
+        swirl.Anchored = false
+        swirl.CanCollide = false
+        swirl.Parent = model
+        makeWeld(top, swirl, data[1])
+    end
+
+    local glossAngles = {CFrame.new(-0.6, 0.4, -0.8), CFrame.new(0.5, 0.3, -0.7), CFrame.new(0, 0.9, -0.5)}
+    for i = 1, 3 do
+        local gloss = Instance.new("Part")
+        gloss.Name = "Gloss" .. i
+        gloss.Shape = Enum.PartType.Ball
+        gloss.Size = Vector3.new(0.3, 0.3, 0.3) * sizeVar
+        gloss.Material = Enum.Material.SmoothPlastic
+        gloss.Color = lightColor
+        gloss.Transparency = 0.4
+        gloss.Anchored = false
+        gloss.CanCollide = false
+        gloss.Parent = model
+        makeWeld(bottom, gloss, glossAngles[i])
+    end
+
+    for i = 1, 40 do
+        local mak = Instance.new("Part")
+        mak.Name = "Mak"
+        mak.Shape = Enum.PartType.Ball
+        mak.Size = Vector3.new(0.12, 0.12, 0.12)
+        mak.Material = Enum.Material.Neon
+        mak.Color = Color3.fromRGB(15, 15, 15)
+        mak.Anchored = false
+        mak.CanCollide = false
+        mak.Parent = model
+        local theta = math.random() * math.pi * 2
+        local phi = math.random() * math.pi * 0.75
+        local rx = math.sin(phi) * math.cos(theta)
+        local rz = math.sin(phi) * math.sin(theta)
+        local ry = math.cos(phi)
+        local target, offset
+        if ry > 0.5 then
+            target = top
+            offset = CFrame.new(rx * 0.9, ry * 0.8, rz * 0.9)
+        elseif ry > 0.1 then
+            target = middle
+            offset = CFrame.new(rx * 1.3, ry * 1.1, rz * 1.3)
+        else
+            target = bottom
+            offset = CFrame.new(rx * 1.6, ry * 1.2, rz * 1.6)
+        end
+        makeWeld(target, mak, offset)
+    end
+
+    for i = 1, 2 do
+        local eye = Instance.new("Part")
+        eye.Name = "Eye" .. i
+        eye.Shape = Enum.PartType.Ball
+        eye.Size = Vector3.new(0.3, 0.3, 0.3) * sizeVar
+        eye.Material = Enum.Material.SmoothPlastic
+        eye.Color = Color3.fromRGB(255, 255, 255)
+        eye.Anchored = false
+        eye.CanCollide = false
+        eye.Parent = model
+        makeWeld(bottom, eye, CFrame.new((i == 1 and -0.55 or 0.55) * sizeVar, 0.3, -1.25 * sizeVar))
+        local pupil = Instance.new("Part")
+        pupil.Name = "Pupil"
+        pupil.Shape = Enum.PartType.Ball
+        pupil.Size = Vector3.new(0.16, 0.16, 0.16) * sizeVar
+        pupil.Material = Enum.Material.SmoothPlastic
+        pupil.Color = Color3.fromRGB(0, 0, 0)
+        pupil.Anchored = false
+        pupil.CanCollide = false
+        pupil.Parent = model
+        makeWeld(eye, pupil, CFrame.new(0, 0, -0.12))
+        local glint = Instance.new("Part")
+        glint.Name = "Glint"
+        glint.Shape = Enum.PartType.Ball
+        glint.Size = Vector3.new(0.06, 0.06, 0.06) * sizeVar
+        glint.Material = Enum.Material.Neon
+        glint.Color = Color3.fromRGB(255, 255, 255)
+        glint.Anchored = false
+        glint.CanCollide = false
+        glint.Parent = model
+        makeWeld(pupil, glint, CFrame.new(-0.04, 0.04, -0.04))
+    end
+
+    local smileData = {
+        {CFrame.new(-0.25, -0.35, -1.2) * CFrame.Angles(0, 0, math.rad(120)), 0.35},
+        {CFrame.new(0, -0.5, -1.25) * CFrame.Angles(0, 0, math.rad(90)), 0.4},
+        {CFrame.new(0.25, -0.35, -1.2) * CFrame.Angles(0, 0, math.rad(60)), 0.35}
+    }
+    for i, data in ipairs(smileData) do
+        local smile = Instance.new("Part")
+        smile.Name = "Smile" .. i
+        smile.Shape = Enum.PartType.Cylinder
+        smile.Size = Vector3.new(0.08, data[2], 0.08)
+        smile.Material = Enum.Material.SmoothPlastic
+        smile.Color = Color3.fromRGB(0, 0, 0)
+        smile.Anchored = false
+        smile.CanCollide = false
+        smile.Parent = model
+        makeWeld(bottom, smile, data[1])
+    end
+
+    for i = 1, 2 do
+        local brow = Instance.new("Part")
+        brow.Name = "Brow" .. i
+        brow.Shape = Enum.PartType.Cylinder
+        brow.Size = Vector3.new(0.06, 0.25, 0.06)
+        brow.Material = Enum.Material.SmoothPlastic
+        brow.Color = darkColor
+        brow.Anchored = false
+        brow.CanCollide = false
+        brow.Parent = model
+        makeWeld(bottom, brow, CFrame.new((i == 1 and -0.55 or 0.55) * sizeVar, 0.55, -1.2 * sizeVar) * CFrame.Angles(0, 0, math.rad(i == 1 and 20 or -20)))
+    end
+
+    for i = 1, 2 do
+        local thigh = Instance.new("Part")
+        thigh.Name = "Thigh" .. i
+        thigh.Shape = Enum.PartType.Cylinder
+        thigh.Size = Vector3.new(0.45, 1.0, 0.45)
+        thigh.Material = Enum.Material.SmoothPlastic
+        thigh.Color = bodyColor
+        thigh.Anchored = false
+        thigh.CanCollide = false
+        thigh.Parent = model
+        makeWeld(base, thigh, CFrame.new((i == 1 and -0.8 or 0.8), -0.2, 0) * CFrame.Angles(0, 0, math.rad(90)))
+        local knee = Instance.new("Part")
+        knee.Name = "Knee" .. i
+        knee.Shape = Enum.PartType.Ball
+        knee.Size = Vector3.new(0.4, 0.4, 0.4)
+        knee.Material = Enum.Material.SmoothPlastic
+        knee.Color = bodyColor
+        knee.Anchored = false
+        knee.CanCollide = false
+        knee.Parent = model
+        makeWeld(base, knee, CFrame.new((i == 1 and -0.8 or 0.8), -0.8, 0))
+        local shin = Instance.new("Part")
+        shin.Name = "Shin" .. i
+        shin.Shape = Enum.PartType.Cylinder
+        shin.Size = Vector3.new(0.4, 0.9, 0.4)
+        shin.Material = Enum.Material.SmoothPlastic
+        shin.Color = bodyColor
+        shin.Anchored = false
+        shin.CanCollide = false
+        shin.Parent = model
+        makeWeld(base, shin, CFrame.new((i == 1 and -0.8 or 0.8), -1.35, 0) * CFrame.Angles(0, 0, math.rad(90)))
+        local foot = Instance.new("Part")
+        foot.Name = "Foot" .. i
+        foot.Shape = Enum.PartType.Ball
+        foot.Size = Vector3.new(0.6, 0.3, 0.9)
+        foot.Material = Enum.Material.SmoothPlastic
+        foot.Color = darkColor
+        foot.Anchored = false
+        foot.CanCollide = false
+        foot.Parent = model
+        makeWeld(base, foot, CFrame.new((i == 1 and -0.8 or 0.8), -1.85, -0.2))
+    end
+
+    local shadow = Instance.new("Part")
+    shadow.Name = "Shadow"
+    shadow.Shape = Enum.PartType.Cylinder
+    shadow.Size = Vector3.new(0.05, 3.0, 3.0)
+    shadow.Transparency = 0.65
+    shadow.Color = Color3.fromRGB(0, 0, 0)
+    shadow.Material = Enum.Material.SmoothPlastic
+    shadow.Anchored = false
+    shadow.CanCollide = false
+    shadow.Parent = model
+    makeWeld(base, shadow, CFrame.new(0, -2.0, 0))
+
+    if math.random() > 0.5 then
+        local bow = Instance.new("Part")
+        bow.Name = "Bow"
+        bow.Shape = Enum.PartType.Ball
+        bow.Size = Vector3.new(0.5, 0.3, 0.3)
+        bow.Material = Enum.Material.SmoothPlastic
+        bow.Color = Color3.fromRGB(255, 100, 150)
+        bow.Anchored = false
+        bow.CanCollide = false
+        bow.Parent = model
+        makeWeld(top, bow, CFrame.new(0, 1.2, 0))
+        for i = 1, 2 do
+            local bowSide = Instance.new("Part")
+            bowSide.Name = "BowSide" .. i
+            bowSide.Shape = Enum.PartType.Ball
+            bowSide.Size = Vector3.new(0.4, 0.25, 0.2)
+            bowSide.Material = Enum.Material.SmoothPlastic
+            bowSide.Color = Color3.fromRGB(255, 100, 150)
+            bowSide.Anchored = false
+            bowSide.CanCollide = false
+            bowSide.Parent = model
+            makeWeld(bow, bowSide, CFrame.new((i == 1 and -0.3 or 0.3), 0, 0))
+        end
+    end
+
+    if math.random() > 0.7 then
+        local frame = Instance.new("Part")
+        frame.Name = "GlassFrame"
+        frame.Shape = Enum.PartType.Cylinder
+        frame.Size = Vector3.new(0.05, 1.6, 0.05)
+        frame.Material = Enum.Material.SmoothPlastic
+        frame.Color = Color3.fromRGB(0, 0, 0)
+        frame.Anchored = false
+        frame.CanCollide = false
+        frame.Parent = model
+        makeWeld(bottom, frame, CFrame.new(0, 0.35, -1.3) * CFrame.Angles(0, 0, math.rad(90)))
+    end
+
+    local bill = createSpeechBubble(model)
+    local bubbleLabel = bill:FindFirstChild("Frame"):FindFirstChild("BubbleText")
+    bubbleLabel.Text = kakaWords[math.random(1, #kakaWords)]
+
+    model.Parent = workspace
+    base.CFrame = hrp.CFrame * CFrame.new(math.random(-8, 8), 2, math.random(-8, 8))
+    table.insert(followers, model)
+end
+
+-- ================= СЛЕДОВАНИЕ =================
+RunService.Heartbeat:Connect(function()
+    if not char or not char.Parent then
+        char = player.Character or player.CharacterAdded:Wait()
+        hrp = char:WaitForChild("HumanoidRootPart")
+    end
+    for i, model in ipairs(followers) do
+        if model and model.Parent and model.PrimaryPart then
+            local base = model.PrimaryPart
+            local angle = (i / #followers) * math.pi * 2
+            local target = hrp.Position + Vector3.new(math.cos(angle) * 4, 2, math.sin(angle) * 4)
+            local dir = (target - base.Position)
+            local repulsion = Vector3.new(0, 0, 0)
+            for j, other in ipairs(followers) do
+                if other ~= model and other.PrimaryPart then
+                    local diff = base.Position - other.PrimaryPart.Position
+                    local dist = diff.Magnitude
+                    if dist < 3 and dist > 0 then
+                        repulsion = repulsion + diff.Unit * (3 - dist) * 0.5
+                    end
+                end
+            end
+            local bob = math.sin(tick() * 3 + i) * 0.15
+            if dir.Magnitude > 1 then
+                local moveDir = dir.Unit + repulsion
+                base.CFrame = CFrame.new(base.Position + moveDir * 0.3 + Vector3.new(0, bob, 0), base.Position + moveDir)
+            end
+        else
+            table.remove(followers, i)
+        end
+    end
+end)
+
+-- ================= СМЕНА СЛОВ =================
+task.spawn(function()
+    while true do
+        task.wait(math.random(3, 6))
+        for _, model in ipairs(followers) do
+            if model and model.Parent then
+                local bill = model:FindFirstChild("SpeechBubble")
+                if bill then
+                    local label = bill:FindFirstChild("Frame"):FindFirstChild("BubbleText")
+                    if label then
+                        label.Text = kakaWords[math.random(1, #kakaWords)]
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- ================= СТРЕЛЬБА =================
+UIS.InputBegan:Connect(function(input, processed)
+    if processed then return end
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        local equipped = char:FindFirstChild("RyzenGun")
+        if equipped then shoot() end
+    end
+end)
+
+local function onToolEquipped(tool)
+    if tool.Name == "RyzenGun" then
+        tool.Activated:Connect(function() shoot() end)
+    end
+end
+char.ChildAdded:Connect(function(child)
+    if child:IsA("Tool") then onToolEquipped(child) end
+end)
+
+-- ================= GUI =================
+local screen = Instance.new("ScreenGui")
+screen.Name = "RyzenKakaFactory"
+screen.ResetOnSpawn = false
+screen.DisplayOrder = 100
+screen.Parent = player.PlayerGui
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 230, 0, 470)
+frame.Position = UDim2.new(0, 10, 0.5, -235)
+frame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+frame.BorderSizePixel = 0
+frame.ClipsDescendants = true
+frame.Visible = true
+frame.Parent = screen
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 12)
+corner.Parent = frame
+
+local stroke = Instance.new("UIStroke")
+stroke.Color = Color3.fromRGB(0, 200, 255)
+stroke.Thickness = 2
+stroke.Parent = frame
+
+local header = Instance.new("Frame")
+header.Size = UDim2.new(1, 0, 0, 45)
+header.BackgroundColor3 = Color3.fromRGB(0, 120, 200)
+header.BorderSizePixel = 0
+header.Parent = frame
+
+local headerCorner = Instance.new("UICorner")
+headerCorner.CornerRadius = UDim.new(0, 12)
+headerCorner.Parent = header
+
+local headerFix = Instance.new("Frame")
+headerFix.Size = UDim2.new(1, 0, 0.5, 0)
+headerFix.Position = UDim2.new(0, 0, 0.5, 0)
+headerFix.BackgroundColor3 = Color3.fromRGB(0, 120, 200)
+headerFix.BorderSizePixel = 0
+headerFix.Parent = header
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, -40, 1, 0)
+title.Position = UDim2.new(0, 5, 0, 0)
+title.BackgroundTransparency = 1
+title.Text = L[lang].title
+title.TextColor3 = Color3.new(1,1,1)
+title.TextScaled = true
+title.Font = Enum.Font.GothamBold
+title.Parent = header
+
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0, 30, 0, 30)
+closeBtn.Position = UDim2.new(1, -35, 0, 7)
+closeBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+closeBtn.Text = "✕"
+closeBtn.TextColor3 = Color3.new(1,1,1)
+closeBtn.TextScaled = true
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.BorderSizePixel = 0
+closeBtn.Parent = header
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(0, 6)
+closeCorner.Parent = closeBtn
+
+local openBtn = Instance.new("TextButton")
+openBtn.Size = UDim2.new(0, 50, 0, 50)
+openBtn.Position = UDim2.new(0, 10, 0, 10)
+openBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 200)
+openBtn.Text = "🏭"
+openBtn.TextColor3 = Color3.new(1,1,1)
+openBtn.TextScaled = true
+openBtn.Font = Enum.Font.GothamBold
+openBtn.BorderSizePixel = 0
+openBtn.Visible = false
+openBtn.Parent = screen
+local openCorner = Instance.new("UICorner")
+openCorner.CornerRadius = UDim.new(0, 12)
+openCorner.Parent = openBtn
+
+closeBtn.MouseButton1Click:Connect(function()
+    frame.Visible = false
+    openBtn.Visible = true
+end)
+
+openBtn.MouseButton1Click:Connect(function()
+    frame.Visible = true
+    openBtn.Visible = false
+end)
+
+local content = Instance.new("Frame")
+content.Size = UDim2.new(1, -20, 1, -60)
+content.Position = UDim2.new(0, 10, 0, 55)
+content.BackgroundTransparency = 1
+content.Parent = frame
+
+local function makeBtn(text, y, color, callback)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, 0, 0, 45)
+    btn.Position = UDim2.new(0, 0, 0, y)
+    btn.BackgroundColor3 = color
+    btn.Text = text
+    btn.TextColor3 = Color3.new(1,1,1)
+    btn.TextScaled = true
+    btn.Font = Enum.Font.GothamBold
+    btn.BorderSizePixel = 0
+    btn.Parent = content
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, 8)
+    c.Parent = btn
+    btn.MouseButton1Click:Connect(callback)
+    return btn
+end
+
+local spawnBtn = makeBtn(L[lang].spawn, 0, Color3.fromRGB(0, 150, 0), createKaka)
+local gunBtn = makeBtn(L[lang].gun, 53, Color3.fromRGB(60, 120, 255), giveGun)
+
+local flyBtn = makeBtn(L[lang].flyOff, 106, Color3.fromRGB(60, 120, 255), function()
+    if flying then stopFly() else startFly() end
+    flyBtn.Text = flying and L[lang].flyOn or L[lang].flyOff
+    flyBtn.BackgroundColor3 = flying and Color3.fromRGB(0, 200, 100) or Color3.fromRGB(60, 120, 255)
+end)
+
+local deleteBtn = makeBtn(L[lang].delete, 159, Color3.fromRGB(200, 0, 0), function()
+    for _, m in ipairs(followers) do
+        if m and m.Parent then m:Destroy() end
+    end
+    followers = {}
+    kakaCounter = 0
+end)
+
+local langBtn = makeBtn(L[lang].langBtn, 212, Color3.fromRGB(150, 0, 200), function()
+    lang = (lang == "RU") and "EN" or "RU"
+    title.Text = L[lang].title
+    spawnBtn.Text = L[lang].spawn
+    gunBtn.Text = L[lang].gun
+    flyBtn.Text = flying and L[lang].flyOn or L[lang].flyOff
+    deleteBtn.Text = L[lang].delete
+    langBtn.Text = L[lang].langBtn
+    langBtn.BackgroundColor3 = (lang == "RU") and Color3.fromRGB(150, 0, 200) or Color3.fromRGB(0, 150, 200)
+    counter.Text = L[lang].kakaCount .. #followers
+    killTitle.Text = L[lang].kills
+    hint.Text = L[lang].hint
+end)
+
+local counter = Instance.new("TextLabel")
+counter.Size = UDim2.new(1, 0, 0, 25)
+counter.Position = UDim2.new(0, 0, 0, 265)
+counter.BackgroundTransparency = 1
+counter.Text = L[lang].kakaCount .. "0"
+counter.TextColor3 = Color3.fromRGB(180, 180, 180)
+counter.TextScaled = true
+counter.Font = Enum.Font.Gotham
+counter.Parent = content
+
+local hint = Instance.new("TextLabel")
+hint.Size = UDim2.new(1, 0, 0, 70)
+hint.Position = UDim2.new(0, 0, 0, 295)
+hint.BackgroundTransparency = 1
+hint.Text = L[lang].hint
+hint.TextColor3 = Color3.fromRGB(150, 150, 150)
+hint.TextScaled = true
+hint.Font = Enum.Font.Gotham
+hint.TextWrapped = true
+hint.Parent = content
+
+local killPanel = Instance.new("Frame")
+killPanel.Size = UDim2.new(0, 150, 0, 70)
+killPanel.Position = UDim2.new(1, -160, 0, 10)
+killPanel.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+killPanel.BorderSizePixel = 0
+killPanel.Parent = screen
+
+local killCorner = Instance.new("UICorner")
+killCorner.CornerRadius = UDim.new(0, 10)
+killCorner.Parent = killPanel
+
+local killStroke = Instance.new("UIStroke")
+killStroke.Color = Color3.fromRGB(255, 50, 50)
+killStroke.Thickness = 2
+killStroke.Parent = killPanel
+
+local killTitle = Instance.new("TextLabel")
+killTitle.Size = UDim2.new(1, 0, 0, 20)
+killTitle.Position = UDim2.new(0, 0, 0, 5)
+killTitle.BackgroundTransparency = 1
+killTitle.Text = L[lang].kills
+killTitle.TextColor3 = Color3.fromRGB(255, 80, 80)
+killTitle.TextScaled = true
+killTitle.Font = Enum.Font.GothamBold
+killTitle.Parent = killPanel
+
+local killLabel = Instance.new("TextLabel")
+killLabel.Size = UDim2.new(1, 0, 0, 40)
+killLabel.Position = UDim2.new(0, 0, 0, 25)
+killLabel.BackgroundTransparency = 1
+killLabel.Text = "0"
+killLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+killLabel.TextScaled = true
+killLabel.Font = Enum.Font.GothamBlack
+killLabel.Parent = killPanel
+
+local crosshairGui = Instance.new("ScreenGui")
+crosshairGui.Name = "RyzenCrosshair"
+crosshairGui.ResetOnSpawn = false
+crosshairGui.IgnoreGuiInset = true
+crosshairGui.DisplayOrder = 999
+crosshairGui.Parent = player.PlayerGui
+
+local crossFrame = Instance.new("Frame")
+crossFrame.Size = UDim2.new(0, 80, 0, 80)
+crossFrame.Position = UDim2.new(0.5, -40, 0.5, -40)
+crossFrame.BackgroundTransparency = 1
+crossFrame.Parent = crosshairGui
+
+local function makeCrossLine(size, pos)
+    local line = Instance.new("Frame")
+    line.Size = size
+    line.Position = pos
+    line.BackgroundColor3 = Color3.fromRGB(0, 255, 100)
+    line.BorderSizePixel = 0
+    line.Parent = crossFrame
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(1, 0)
+    c.Parent = line
+end
+
+makeCrossLine(UDim2.new(0, 3, 0, 15), UDim2.new(0.5, -1.5, 0, 0))
+makeCrossLine(UDim2.new(0, 3, 0, 15), UDim2.new(0.5, -1.5, 1, -15))
+makeCrossLine(UDim2.new(0, 15, 0, 3), UDim2.new(0, 0, 0.5, -1.5))
+makeCrossLine(UDim2.new(0, 15, 0, 3), UDim2.new(1, -15, 0.5, -1.5))
+
+local dot = Instance.new("Frame")
+dot.Size = UDim2.new(0, 4, 0, 4)
+dot.Position = UDim2.new(0.5, -2, 0.5, -2)
+dot.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+dot.BorderSizePixel = 0
+dot.Parent = crossFrame
+local dotCorner = Instance.new("UICorner")
+dotCorner.CornerRadius = UDim.new(1, 0)
+dotCorner.Parent = dot
+
+RunService.Heartbeat:Connect(function()
+    counter.Text = L[lang].kakaCount .. #followers
+    killLabel.Text = tostring(killCount)
+    if flyBtn then
+        flyBtn.Text = flying and L[lang].flyOn or L[lang].flyOff
+        flyBtn.BackgroundColor3 = flying and Color3.fromRGB(0, 200, 100) or Color3.fromRGB(60, 120, 255)
+    end
+    if langBtn then
+        langBtn.Text = L[lang].langBtn
+    end
+end)
+
+print("✅ RYZEN ULTRA KAKA V7 загружен")
+print("🌐 Кнопка языка теперь меняется: RU <-> EN")
